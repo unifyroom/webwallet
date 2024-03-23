@@ -12,6 +12,17 @@ export function encript(text: string, key: string): string {
     }
 }
 
+export function decript(encryptedData: string, key: string){
+    try {
+        var iv = CryptoJS.enc.Hex.parse('F2EBAE2CDF804895B5C091D0310169C9')
+        var cfg = { mode: CryptoJS.mode.CBC, iv: iv, padding: CryptoJS.pad.Pkcs7 }
+        var decrypted = CryptoJS.AES.decrypt(encryptedData, key, cfg)
+        return decrypted.toString(CryptoJS.enc.Utf8)
+    } catch (err) {
+        console.log(err)
+        return ''
+    }
+}
 
 // decrypt = (encryptedData, key) => {
 //     try {

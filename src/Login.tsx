@@ -4,33 +4,10 @@ import { atom, selector, useRecoilState } from 'recoil';
 import { Mnemonic } from '@unifyroom/unfycore-lib';
 import { useMutation } from 'react-query';
 import { encript, encriptPassword } from './ToolEncript';
+import { getAddress, walletDataFilter } from './state/WalletState';
 
 
-export interface WalletData {
-  encPassword: string | null
-  encSeed: string | null
-}
 
-const localStorageEffect = (key: string) => ({setSelf, onSet}: any) => {
-  const savedValue = localStorage.getItem(key)
-  if (savedValue != null) {
-    setSelf(JSON.parse(savedValue))
-  }
-  onSet((newValue: any) => {
-    localStorage.setItem(key, JSON.stringify(newValue))
-  })
-}
-
-const walletDataFilter = atom<WalletData>({
-  key: "walletDataFilter",
-  default: {
-    encPassword: "",
-    encSeed: ""
-  },
-  effects: [
-    localStorageEffect("wallet")
-  ]
-})
 
 // const walletDataFilter = selector<WalletData>({
 //   key: "walletDataFilter",
@@ -94,12 +71,11 @@ export default function Login(){
       const datawallet = {
         encSeed: encript(seed, password),
         encPassword: encriptPassword(password),
+        address: getAddress(seed)
       }
       
       setWallet(datawallet)
       console.log(datawallet)
-      // todo
-      throw new Error("not Implemented")
     },
     onSuccess: () => {
       onClose()
@@ -117,27 +93,13 @@ export default function Login(){
     setWallet({
       encPassword: "",
       encSeed: "",
+      address: []
     })
   }
 
   return (
     <>
-
-    <Card>
-      <CardHeader>
-        <Heading size='md'>Wallet</Heading>
-      </CardHeader>
-      <CardBody>
-        <ButtonGroup>
-          <Button onClick={openModal}>create wallet</Button>
-          <Button colorScheme='red' onClick={deleteWallet}>log out</Button>
-        </ButtonGroup>
-        
-        <Text>password: {wallet.encPassword}</Text>
-        <Text>seed: {wallet.encSeed}</Text>
-      </CardBody>
-    </Card>
-
+      <Button colorScheme='blue' onClick={openModal}>Create Wallet</Button>
       <Modal
         initialFocusRef={initialRef}
         finalFocusRef={finalRef}
