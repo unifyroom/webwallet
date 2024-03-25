@@ -1,10 +1,11 @@
-import { Card, CardHeader, Heading, CardBody, Text, Button, useDisclosure, FormControl, FormLabel, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, useToast, Code, FormErrorMessage, ButtonGroup } from '@chakra-ui/react';
-import React, { useState } from 'react';
-import { atom, selector, useRecoilState } from 'recoil';
+import { Button, useDisclosure, FormControl, FormLabel, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, useToast, Code, FormErrorMessage, ButtonGroup, HStack, FormHelperText, Spacer, Textarea } from '@chakra-ui/react';
+import React, { useEffect, useState } from 'react';
+import { atom, selector, useRecoilState, useRecoilValue } from 'recoil';
 import { Mnemonic } from '@unifyroom/unfycore-lib';
 import { useMutation } from 'react-query';
 import { encript, encriptPassword } from './ToolEncript';
 import { getAddress, walletDataFilter } from './state/WalletState';
+import { AddIcon, DownloadIcon, SmallAddIcon } from '@chakra-ui/icons';
 
 
 
@@ -36,8 +37,48 @@ function checkPassword(pwd: string, repwd: string): boolean{
 }
 
 
+const isImportState = atom<boolean>({
+  key: 'isImportState',
+  default: false
+})
 
-// TODO: restore wallet
+interface SeedForm {
+  seed?: string
+  seedOnChange: (data: string) => void
+}
+
+function SeedForm({seed, seedOnChange}: SeedForm){
+  const [isImport, setImport] = useRecoilState(isImportState)
+  
+  const newHDSeed = () => {
+    const hdseed = new Mnemonic().toString()
+    seedOnChange(hdseed)
+    setImport(false)
+  }
+
+  useEffect(() => {
+    const hdseed = new Mnemonic().toString()
+    seedOnChange(hdseed)
+  }, [])
+
+
+  return (
+    <FormControl>
+      <FormLabel>HD Seed</FormLabel>
+      { isImport && <Textarea onChange={e => seedOnChange(e.target.value)}></Textarea> }
+      { !isImport && <Code>{seed}</Code> }
+      
+      <HStack>
+        <Spacer />
+        <FormHelperText>
+          { isImport && <Button leftIcon={<SmallAddIcon />} size="xs" variant="ghost" onClick={newHDSeed}>New</Button> }
+          { !isImport && <Button leftIcon={<DownloadIcon />} size="xs" variant="ghost" onClick={() => setImport(true)}>Import</Button> }
+        </FormHelperText>
+      </HStack>
+      
+    </FormControl>
+  )
+}
 
 export default function Login(){
   const { isOpen, onOpen, onClose } = useDisclosure()
@@ -47,6 +88,7 @@ export default function Login(){
   const [wallet, setWallet] = useRecoilState(walletDataFilter)
   const [password, setPassword] = useState<string>("")
   const [rePassword, setRePassword] = useState<string>("")
+  const isImport = useRecoilValue(isImportState)
   
 
   const isInvalidPass = checkPassword(password, rePassword)
@@ -55,8 +97,6 @@ export default function Login(){
   const finalRef = React.useRef(null)
 
   const openModal = () => {
-    const hdseed = new Mnemonic().toString()
-    setSeed(hdseed)
     onOpen()
   }
   const createWallet = useMutation({
@@ -89,13 +129,6 @@ export default function Login(){
     }
   })
 
-  const deleteWallet = () => {
-    setWallet({
-      encPassword: "",
-      encSeed: "",
-      address: []
-    })
-  }
 
   return (
     <>
@@ -111,10 +144,12 @@ export default function Login(){
           <ModalHeader>Create Wallet</ModalHeader>
           <ModalCloseButton />
           <ModalBody pb={6}>
-            <FormControl>
-              <FormLabel>HD Seed</FormLabel>
-              <Code>{seed}</Code>
-            </FormControl>
+
+            <SeedForm
+              seed={seed}
+              seedOnChange={setSeed}
+            />
+
             <FormControl isInvalid={isInvalidPass}>
               <FormLabel>Password</FormLabel>
               <Input type='password' ref={initialRef} placeholder='Password' onChange={e => setPassword(e.target.value)}/>
@@ -130,7 +165,7 @@ export default function Login(){
 
           <ModalFooter>
             <Button colorScheme='blue' mr={3} onClick={() => createWallet.mutate()}>
-              Create
+              {isImport ? "Import": "Create"}
             </Button>
             <Button onClick={onClose}>Cancel</Button>
           </ModalFooter>
@@ -140,3 +175,4 @@ export default function Login(){
     
   )
 }
+

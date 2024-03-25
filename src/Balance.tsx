@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatLabel, StatNumber, Stat, Avatar, HStack, Box, Text, ButtonGroup, Button, useDisclosure, FormControl, FormLabel, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, FormErrorMessage, Menu, IconButton, MenuList, MenuItem, MenuButton } from "@chakra-ui/react";
-import { atom, useRecoilState } from 'recoil';
+import { atom, useRecoilState, useRecoilValue } from 'recoil';
 import { useMutation } from 'react-query';
 import { decript, encript, encriptPassword } from './ToolEncript';
 import { walletDataFilter } from './state/WalletState';
 import { Mnemonic } from '@unifyroom/unfycore-lib';
 import { DeleteIcon, ExternalLinkIcon, HamburgerIcon } from '@chakra-ui/icons';
 import Login from './Login';
+import { getUtxoAddress } from './utils/explorer';
 
 export interface WalletState {
   isLogin: boolean
@@ -19,11 +20,41 @@ const loginState = atom<WalletState>({
   }
 })
 
+function BalanceData(){
+  const wallet = useRecoilValue(walletDataFilter)
+  const [balance, setBalance] = useState<number>(0)
+
+  useEffect(() => {
+    const inter = setInterval(() => {
+
+      wallet.address.map(addr => {
+        getUtxoAddress(addr).then(data => {
+          let balance = 0
+          data.map(utxo => {
+            balance += utxo.amount
+          })
+          setBalance(balance)
+        })
+      })
+
+    }, 10000)
+
+    return ()=> {
+      clearInterval(inter)
+    }
+
+  }, [setBalance])
+
+  return (
+    <StatNumber>{balance}</StatNumber>
+  )
+}
+
 export default function Balance() {
   const [wallet, setWallet] = useRecoilState(walletDataFilter)
   const isLogin = wallet.address.length > 0
   const isSeed = wallet.encSeed ? true: false
-  const balance = 12000
+  
   const logout = () => {
     setWallet((data) => {
       return {
@@ -35,14 +66,14 @@ export default function Balance() {
 
   return (
     <HStack direction="row">
-      <Box ml={10}>
+      <Box mr={4} ml={8}>
         <Avatar name='Dan Abrahmov' src='https://bit.ly/dan-abramov' />
       </Box>
       
       <Stat>
         <StatLabel>Balance</StatLabel>
         <HStack>
-          <StatNumber>{balance}</StatNumber><Text>UNFY</Text>
+          <BalanceData /><Text>UNFY</Text>
         </HStack>
         
         {/* <StatHelpText>
@@ -54,8 +85,6 @@ export default function Balance() {
         isSeed && 
         <ButtonGroup>
           {isLogin && <Button colorScheme='red' onClick={logout}>Logout</Button>}
-          {/* {!isLogin && <OpenWallet />}
-          {!isLogin && <Button>delete wallet</Button>} */}
           {!isLogin && <MenuCard />}
         </ButtonGroup>
       }

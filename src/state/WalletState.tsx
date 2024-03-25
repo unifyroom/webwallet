@@ -1,6 +1,6 @@
 import { Mnemonic } from "@unifyroom/unfycore-lib"
 import { atom, useRecoilValue } from "recoil"
-import { getTxAddress } from "../utils/explorer"
+import { getTxAddress, getUtxoAddress } from "../utils/explorer"
 
 
 export interface WalletData {
@@ -56,6 +56,7 @@ export function useCreateRefreshTx() {
   
     for (var address of addresses) {
       await getTxAddress(address)
+      await getUtxoAddress(address)
     }
   }
   
