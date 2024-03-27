@@ -5,6 +5,7 @@ import { atom, useRecoilState, useRecoilValue } from "recoil";
 import { tabIndexState } from "./state/TabState";
 import { sendToAddress } from "./utils/explorer";
 import { walletDataFilter } from "./state/WalletState";
+import { decript } from "./ToolEncript";
 
 
 interface SendData {
@@ -61,7 +62,7 @@ export default function Send(){
       <NumberInput defaultValue={10} clampValueOnBlur={false} value={sendData.amount} onChange={setAmount}>
         <NumberInputField />
       </NumberInput>
-      <FormHelperText>fee 0.0001 UNFY</FormHelperText>
+      {/* <FormHelperText>fee 0.0001 UNFY</FormHelperText> */}
     </FormControl>
     <FormControl>
       <Flex>
@@ -81,7 +82,6 @@ export default function Send(){
 function SendPopup() {
   const { isOpen, onOpen, onClose } = useDisclosure()
   const cancelRef = React.useRef(null)
-  
   const toast = useToast()
   const [sendData, setSendData] = useRecoilState(sendDataState)
   const [tabi, setTabi] = useRecoilState(tabIndexState)
@@ -124,7 +124,16 @@ function SendPopup() {
 
   const sendMutation = useMutation({
     mutationFn: async() => {
-       await sendToAddress(wallet.address, sendData.toAddress, sendData.amount)
+      
+       await sendToAddress(async() => {
+        if(!wallet.encSeed){
+          throw new Error("wallet not login. (no seed)")
+        }
+  
+        return decript(wallet.encSeed, "heri7777")
+
+
+       }, wallet.address, sendData.toAddress, sendData.amount)
       
     },
     onSuccess: () => {
@@ -185,6 +194,8 @@ function SendPopup() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      
+
     </>
   )
 }

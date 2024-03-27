@@ -1,3 +1,4 @@
+import { Mnemonic, PrivateKey } from '@unifyroom/unfycore-lib'
 import CryptoJS from 'crypto-js'
 
 export function encript(text: string, key: string): string {
@@ -52,3 +53,18 @@ export function encriptPassword(pwd: string): string{
 	return encript(passwordHash, '9ADE0896B2594184BA36E757C8E6EFD7')
 }
 
+export type SeedGetter = () => Promise<string>
+
+export async function getPrivateKey(addresses: string[], seedCall: SeedGetter) {
+    const seedPhrase = await seedCall()
+    const keys: PrivateKey[] = []
+    let index = 0
+    var mnemonic = new Mnemonic(seedPhrase)
+    var xpriv = mnemonic.toHDPrivateKey()
+    Object.keys(addresses).forEach(() => {
+        const priv = xpriv.derive("m/44'/5'/0'/0/" + index, false).privateKey
+        keys.push(priv)
+        index++
+    })
+    return keys
+}

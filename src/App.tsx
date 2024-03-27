@@ -21,7 +21,7 @@ function App() {
 
       <Card my={6}>
         <CardHeader>
-          <Heading size='md'>Receive Address</Heading>
+          <Heading size='md'>Address</Heading>
           {
             wallet.address.map(addr => {
               return <Box key={addr}>
