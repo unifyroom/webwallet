@@ -101,8 +101,12 @@ export async function addressToUtxo(addresses: string[], sendAmount: number): Pr
 
 }
 
+type SendPreview = UtxoRes & {
+  send: (seedCall: SeedGetter) => Promise<void>
+}
 
-export async function sendToAddress(seedCall: SeedGetter, addresses: string[], address: string, sendAmount: number) {
+
+export async function sendToAddress(addresses: string[], address: string, sendAmount: number): Promise<SendPreview> {
   if(sendAmount <= 0){
     throw new Error("issuffient balance.")
   }
@@ -117,7 +121,7 @@ export async function sendToAddress(seedCall: SeedGetter, addresses: string[], a
 
   const utxRes = await addressToUtxo(addresses, sendAmount)
 
-  const privkey = await getPrivateKey(addresses, seedCall)
+  
   const fixutxos = utxRes.utxos.map( tx => {
     return new Transaction.UnspentOutput({
       address: tx.address,
@@ -130,23 +134,22 @@ export async function sendToAddress(seedCall: SeedGetter, addresses: string[], a
 
     })
   })
-  const trans = new Transaction(undefined)
-    .from(fixutxos)
-    .to(address, sendAmount * 100000000)
-    .change(addresses[0])
-    .sign(privkey)
 
-    console.log("trans", trans, privkey, sendAmount, address)
-    console.log("serialize trans", trans.serialize(false))
+  return {
+    ...utxRes,
+    send: async (seedCall: SeedGetter) => {
+      const privkey = await getPrivateKey(addresses, seedCall)
+      const trans = new Transaction(undefined)
+        .from(fixutxos)
+        .to(address, sendAmount * 100000000)
+        .change(addresses[0])
+        .sign(privkey)
+
+        console.log("trans", trans, privkey, sendAmount, address)
+        console.log("serialize trans", trans.serialize(false))
 
 
-    await broadcastTransaction(trans.serialize(false))
-
-
-  // var transaction = 
-  // .from(utxos) 
-  // .to(address, amount)
-  // .change(address)
-
-  // .sign(privkeySet)
+      await broadcastTransaction(trans.serialize(false))
+    }
+  }
 }

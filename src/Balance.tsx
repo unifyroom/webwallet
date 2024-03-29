@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { StatLabel, StatNumber, Stat, Avatar, HStack, Box, Text, ButtonGroup, Button, useDisclosure, FormControl, FormLabel, Input, Modal, ModalBody, ModalCloseButton, ModalContent, ModalFooter, ModalHeader, ModalOverlay, FormErrorMessage, Menu, IconButton, MenuList, MenuItem, MenuButton } from "@chakra-ui/react";
 import { atom, useRecoilState, useRecoilValue } from 'recoil';
-import { useMutation } from 'react-query';
+import { useMutation, useQuery, useQueryClient } from 'react-query';
 import { decript, encript, encriptPassword } from './ToolEncript';
 import { walletDataFilter } from './state/WalletState';
 import { Mnemonic } from '@unifyroom/unfycore-lib';
@@ -9,32 +9,39 @@ import { DeleteIcon, ExternalLinkIcon, HamburgerIcon } from '@chakra-ui/icons';
 import Login from './Login';
 import { getUtxoAddress } from './utils/explorer';
 
-export interface WalletState {
-  isLogin: boolean
-}
-
-const loginState = atom<WalletState>({
-  key: "loginState",
-  default: {
-    isLogin: false
-  }
-})
 
 function BalanceData(){
-  const wallet = useRecoilValue(walletDataFilter)
-  const [balance, setBalance] = useState<number>(0)
+  const [wallet, setWallet] = useRecoilState(walletDataFilter)
+  const client = useQueryClient()
+
+  const balanceQuery = useQuery({
+    queryKey: ["balanceQuery", ...wallet.address],
+    queryFn: async () => {
+      
+      const hasil = await Promise.all(wallet.address.map(addr => {
+        return getUtxoAddress(addr).then(data => {
+          let bal = 0
+          data.map(utxo => {
+            bal += utxo.amount
+          })
+          
+          return bal
+        })
+      }))
+
+      const balancedata = hasil.reduce((sum, current) => sum + current, 0) 
+
+      // console.log("requesting", hasil, balancedata, wallet.address)
+
+      return balancedata;
+    },
+  })
 
   useEffect(() => {
     const inter = setInterval(() => {
 
-      wallet.address.map(addr => {
-        getUtxoAddress(addr).then(data => {
-          let balance = 0
-          data.map(utxo => {
-            balance += utxo.amount
-          })
-          setBalance(balance)
-        })
+      client.invalidateQueries({
+        queryKey: ["balanceQuery"]
       })
 
     }, 10000)
@@ -43,14 +50,15 @@ function BalanceData(){
       clearInterval(inter)
     }
 
-  }, [setBalance])
+  }, [client])
 
   return (
-    <StatNumber>{balance}</StatNumber>
+    <StatNumber>{balanceQuery.data ? balanceQuery.data: 0}</StatNumber>
   )
 }
 
 export default function Balance() {
+  const client = useQueryClient()
   const [wallet, setWallet] = useRecoilState(walletDataFilter)
   const isLogin = wallet.address.length > 0
   const isSeed = wallet.encSeed ? true: false
@@ -67,7 +75,7 @@ export default function Balance() {
   return (
     <HStack direction="row">
       <Box mr={4} ml={8}>
-        <Avatar name='Dan Abrahmov' src='https://bit.ly/dan-abramov' />
+        <Avatar name='logo' src='./logo192.png' />
       </Box>
       
       <Stat>

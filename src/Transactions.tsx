@@ -4,26 +4,43 @@ import { getTxAddress } from "./utils/explorer";
 import { useRecoilValue } from "recoil";
 import { walletDataFilter } from "./state/WalletState";
 import { Tx } from "./models/transaction";
+import { useQuery, useQueryClient } from "react-query";
 
 
 
 export function Transactions(){
   const wallet = useRecoilValue(walletDataFilter)
-  const [ txs, setTxs ] = useState<Tx[]>([])
+  const client = useQueryClient()
+
+  const transactionQuery = useQuery({
+    queryKey: ["transactionQuery", ...wallet.address],
+    queryFn: async () => {
+      const hasil = await Promise.all(
+        wallet.address.map(addr => {
+          return getTxAddress(addr)
+        })
+      )
+
+      const txs = hasil.flatMap(data => {
+        return data.txs
+      })
+
+      return txs
+
+    }
+  })
   
   useEffect(() => {
     const inter = setInterval(() => {
-      wallet.address.map(addr => {
-        getTxAddress(addr).then(res => {
-          setTxs(res.txs)
-        })
+      client.invalidateQueries({
+        queryKey: ["transactionQuery"]
       })
     }, 10000)
 
     return () => {
       clearInterval(inter)
     }
-  }, [setTxs])
+  }, [])
 
   const getAmount = (tx: Tx): number => {
     let amount = 0
@@ -62,7 +79,7 @@ export function Transactions(){
     </Thead>
     <Tbody>
       {
-        txs.map(tx => {
+        transactionQuery.data?.map(tx => {
           return (
             <Tr key={tx.txid}>
               <Td isNumeric>{tx.confirmations}</Td>

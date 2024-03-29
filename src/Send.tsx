@@ -1,6 +1,6 @@
 import { AlertDialog, AlertDialogBody, AlertDialogCloseButton, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Box, Button, ButtonGroup, Flex, FormControl, FormHelperText, FormLabel, Input, NumberInput, NumberInputField, Spacer, VStack, useDisclosure, Text, Divider, useToast } from "@chakra-ui/react";
-import React from "react";
-import { useMutation } from "react-query";
+import React, { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "react-query";
 import { atom, useRecoilState, useRecoilValue } from "recoil";
 import { tabIndexState } from "./state/TabState";
 import { sendToAddress } from "./utils/explorer";
@@ -80,13 +80,21 @@ export default function Send(){
 
 
 function SendPopup() {
+  const [password, setPassword] = useState<string>("")
   const { isOpen, onOpen, onClose } = useDisclosure()
   const cancelRef = React.useRef(null)
   const toast = useToast()
   const [sendData, setSendData] = useRecoilState(sendDataState)
-  const [tabi, setTabi] = useRecoilState(tabIndexState)
+  const [, setTabi] = useRecoilState(tabIndexState)
   const wallet = useRecoilValue(walletDataFilter)
+  const client = useQueryClient()
 
+  const sendQuery = useQuery({
+    queryKey: ["sendQuery", sendData.toAddress, sendData.amount],
+    queryFn: () => {
+      return sendToAddress(wallet.address, sendData.toAddress, sendData.amount)
+    }
+  })
 
   const openPopup = () => {
     try {
@@ -115,25 +123,30 @@ function SendPopup() {
         })
       }
     }
-    
-    
-
-    
 
   }
 
   const sendMutation = useMutation({
     mutationFn: async() => {
+
+      if(password===""){
+        throw new Error("password empty")
+      }
+
+      if(!sendQuery.data) {
+        throw sendQuery.error
+      }
+
+      const sendPreview = sendQuery.data
       
-       await sendToAddress(async() => {
+      await sendPreview.send(async() => {
         if(!wallet.encSeed){
           throw new Error("wallet not login. (no seed)")
         }
   
-        return decript(wallet.encSeed, "heri7777")
+        return decript(wallet.encSeed, password)
+        })
 
-
-       }, wallet.address, sendData.toAddress, sendData.amount)
       
     },
     onSuccess: () => {
@@ -144,6 +157,12 @@ function SendPopup() {
         txFee: 0
       })
       setTabi(1)
+      client.invalidateQueries({
+        queryKey: ["balanceQuery"]
+      })
+      client.invalidateQueries({
+        queryKey: ["transactionQuery"]
+      })
     },
     onError: (err) => {
       if(err instanceof Error){
@@ -178,18 +197,32 @@ function SendPopup() {
           <AlertDialogHeader>Send UNFY</AlertDialogHeader>
           <AlertDialogCloseButton />
           <AlertDialogBody>
-            <Text><Text as='b'>{sendData.amount} UNFY</Text> to <Text as='b'>{sendData.toAddress}</Text> <br/> using available funds</Text>
-            <Divider />
-            <Text>Transaction Fee: <Text as='b'>{sendData.txFee} UNFY</Text> </Text>
-            <Divider />
-            <Text>Total Transaction: <Text as='b'>200.92 UNFY</Text></Text>
+            <VStack>
+              { sendQuery.data && 
+                <Box>
+                  <Text><Text as='b'>{sendQuery.data.sendAmount} UNFY</Text> to <Text as='b'>{sendData.toAddress}</Text> <br/> using available funds</Text>
+                  <Divider />
+                  <Text>Transaction Fee: <Text as='b'>{sendQuery.data.totalFee} UNFY</Text> </Text>
+                  <Divider />
+                  <Text>Total Transaction: <Text as='b'>{sendQuery.data.totalAmount} UNFY</Text></Text>
+                  <Divider />
+                </Box>
+              }
+              
+              <FormControl>
+                <FormLabel>Password</FormLabel>
+                <Input type='password' onChange={e => setPassword(e.target.value)}/>
+              </FormControl>
+            </VStack>
+            
+            
           </AlertDialogBody>
           <AlertDialogFooter>
             <Button ref={cancelRef} onClick={onClose}>
-              No
+              Cancel
             </Button>
             <Button colorScheme='blue' ml={3} onClick={() => sendMutation.mutate()}>
-              Yes
+              Send
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
