@@ -101,7 +101,7 @@ export async function addressToUtxo(addresses: string[], sendAmount: number): Pr
 
 }
 
-type SendPreview = UtxoRes & {
+export type SendPreview = UtxoRes & {
   send: (seedCall: SeedGetter) => Promise<void>
 }
 

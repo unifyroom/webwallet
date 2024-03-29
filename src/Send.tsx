@@ -1,9 +1,9 @@
-import { AlertDialog, AlertDialogBody, AlertDialogCloseButton, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Box, Button, ButtonGroup, Flex, FormControl, FormHelperText, FormLabel, Input, NumberInput, NumberInputField, Spacer, VStack, useDisclosure, Text, Divider, useToast } from "@chakra-ui/react";
+import { AlertDialog, AlertDialogBody, AlertDialogCloseButton, AlertDialogContent, AlertDialogFooter, AlertDialogHeader, AlertDialogOverlay, Box, Button, ButtonGroup, Flex, FormControl, FormHelperText, FormLabel, Input, NumberInput, NumberInputField, Spacer, VStack, useDisclosure, Text, Divider, useToast, FormErrorMessage } from "@chakra-ui/react";
 import React, { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "react-query";
 import { atom, useRecoilState, useRecoilValue } from "recoil";
 import { tabIndexState } from "./state/TabState";
-import { sendToAddress } from "./utils/explorer";
+import { SendPreview, sendToAddress } from "./utils/explorer";
 import { walletDataFilter } from "./state/WalletState";
 import { decript } from "./ToolEncript";
 
@@ -29,7 +29,25 @@ const sendDataState = atom<SendData>({
 
 export default function Send(){
 
+  const wallet = useRecoilValue(walletDataFilter)
+
   const [sendData, setSendData] = useRecoilState(sendDataState)
+  
+  const sendQuery = useQuery({
+    queryKey: ["sendQuery", sendData.toAddress, sendData.amount],
+    queryFn: () => {
+      
+      if(sendData.amount === 0){
+        return
+      }
+
+      if(sendData.toAddress === ""){
+        return
+      }
+
+      return sendToAddress(wallet.address, sendData.toAddress, sendData.amount)
+    }
+  })
 
   const changeAddr = (e: React.ChangeEvent<HTMLInputElement>) => {
     setSendData(data => {
@@ -52,23 +70,27 @@ export default function Send(){
 
   return (
   <VStack>
-    <FormControl>
+    <FormControl isInvalid={sendQuery.isError}>
       <FormLabel>To Address</FormLabel>
       <Input type='address' onChange={changeAddr} value={sendData.toAddress}/>
       {/* <FormHelperText>We'll never share your email.</FormHelperText> */}
+
+      
+
     </FormControl>
-    <FormControl>
+    <FormControl isInvalid={sendQuery.isError}>
       <FormLabel>Amount</FormLabel>
       <NumberInput defaultValue={10} clampValueOnBlur={false} value={sendData.amount} onChange={setAmount}>
         <NumberInputField />
       </NumberInput>
       {/* <FormHelperText>fee 0.0001 UNFY</FormHelperText> */}
+      <FormErrorMessage>{ String(sendQuery.error) }</FormErrorMessage>
     </FormControl>
     <FormControl>
       <Flex>
         <Spacer />
         <ButtonGroup>
-          <SendPopup></SendPopup>
+          <SendPopup prev={sendQuery.data}></SendPopup>
         </ButtonGroup>
       </Flex>
       
@@ -79,7 +101,7 @@ export default function Send(){
 }
 
 
-function SendPopup() {
+function SendPopup({prev}: {prev: SendPreview | undefined}) {
   const [password, setPassword] = useState<string>("")
   const { isOpen, onOpen, onClose } = useDisclosure()
   const cancelRef = React.useRef(null)
@@ -88,13 +110,6 @@ function SendPopup() {
   const [, setTabi] = useRecoilState(tabIndexState)
   const wallet = useRecoilValue(walletDataFilter)
   const client = useQueryClient()
-
-  const sendQuery = useQuery({
-    queryKey: ["sendQuery", sendData.toAddress, sendData.amount],
-    queryFn: () => {
-      return sendToAddress(wallet.address, sendData.toAddress, sendData.amount)
-    }
-  })
 
   const openPopup = () => {
     try {
@@ -106,6 +121,9 @@ function SendPopup() {
         throw new Error("address empty.")
       }
 
+      if(!prev){
+        return
+      }
 
       onOpen()
     } catch (err) {
@@ -133,19 +151,25 @@ function SendPopup() {
         throw new Error("password empty")
       }
 
-      if(!sendQuery.data) {
-        throw sendQuery.error
+      if(!prev) {
+        throw new Error("Send Error")
       }
 
-      const sendPreview = sendQuery.data
+      const sendPreview = prev
       
       await sendPreview.send(async() => {
         if(!wallet.encSeed){
           throw new Error("wallet not login. (no seed)")
         }
-  
-        return decript(wallet.encSeed, password)
-        })
+
+        const seed = decript(wallet.encSeed, password)
+        if (!seed || seed === "") {
+          throw new Error("wrong password")
+        }
+        
+
+        return seed
+      })
 
       
     },
@@ -198,13 +222,13 @@ function SendPopup() {
           <AlertDialogCloseButton />
           <AlertDialogBody>
             <VStack>
-              { sendQuery.data && 
+              { prev && 
                 <Box>
-                  <Text><Text as='b'>{sendQuery.data.sendAmount} UNFY</Text> to <Text as='b'>{sendData.toAddress}</Text> <br/> using available funds</Text>
+                  <Text><Text as='b'>{prev.sendAmount} UNFY</Text> to <Text as='b'>{sendData.toAddress}</Text> <br/> using available funds</Text>
                   <Divider />
-                  <Text>Transaction Fee: <Text as='b'>{sendQuery.data.totalFee} UNFY</Text> </Text>
+                  <Text>Transaction Fee: <Text as='b'>{prev.totalFee} UNFY</Text> </Text>
                   <Divider />
-                  <Text>Total Transaction: <Text as='b'>{sendQuery.data.totalAmount} UNFY</Text></Text>
+                  <Text>Total Transaction: <Text as='b'>{prev.sendAmount + prev.totalFee} UNFY</Text></Text>
                   <Divider />
                 </Box>
               }
